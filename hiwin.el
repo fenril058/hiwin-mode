@@ -41,7 +41,7 @@
 ;; 2022-06-27 ril
 ;; - Emacs 27以上の対応として `hiwin-face'に :extend t を追加.
 ;; - DocumationとCommnetをわかりやすいように変更.
-;; - Versionを2.1.0に変更
+;; - Versionを2.1.0に変更し, `hiwin-version'を追加.
 ;;
 ;; 2016-02-07 ril
 ;; - 変数名や関数名をいろいろと変更.
@@ -81,6 +81,9 @@
 (defgroup hiwin nil
   "Visible active window mode."
   :group 'emacs)
+
+(defconst hiwin-version "2.1.0"
+  "Version number of hiwin-mode.")
 
 (defcustom hiwin-mode-lighter " hiwin"
   "Lighter of hiwin-mode."
@@ -269,6 +272,12 @@ Face for inactive window.")
   "Turn off visible active window mode."
   (interactive)
   (hiwin-mode -1))
+
+;;;###autoload
+(defun hiwin-version ()
+  "Print `hiwin-version'."
+  (interactive)
+  (message "hiwin mode version %s" hiwin-version))
 
 (provide 'hiwin)
 
