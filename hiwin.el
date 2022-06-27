@@ -7,7 +7,7 @@
 ;;
 ;; Author: k.sugita
 ;; Last Modified:
-;; Version: 2.1.0
+;; Version: 2.1.1
 ;; Keywords: faces, editing, emulating
 ;;
 ;; This file is free software; you can redistribute it and/or modify
@@ -40,7 +40,9 @@
 ;;
 ;; 2022-06-28 ril
 ;; - `select-window'のNORECORD optionをtにして記録されないようにした.
-;;
+;; - ミニバッファ直前のウィンドウを除外するかどうか選べるようにした.
+;;   `hiwin-ignore-minibuffer-selected-window' が non-nil のとき、
+;;   除外する.  デフォルトは nil で除外しない.
 ;;
 ;; 2022-06-27 ril
 ;; - Emacs 27以上の対応として `hiwin-face'に :extend t を追加.
@@ -86,12 +88,17 @@
   "Visible active window mode."
   :group 'emacs)
 
-(defconst hiwin-version "2.1.0"
+(defconst hiwin-version "2.1.1"
   "Version number of hiwin-mode.")
 
 (defcustom hiwin-mode-lighter " hiwin"
   "Lighter of hiwin-mode."
   :type 'string
+  :group 'hiwin)
+
+(defcustom hiwin-ignore-minibuffer-selected-window nil
+  "もしこの変数が non-nil であれば,ミニバッファ直前のウィンドウをハイライト対象外にする."
+  :type 'boolean
   :group 'hiwin)
 
 (defcustom hiwin-ignore-buffer-names '("+draft/" "*helm")
@@ -192,6 +199,7 @@ Face for inactive window.")
         (hw-tgt-win nil)                ; 処理対象ウィンドウ
         (hw-win-lst (window-list))      ; ウィンドウリスト
         (hw-cnt 0)                      ; ループカウンタ
+        (minibuffer-selected-window (minibuffer-selected-window))
         )
     (while hw-win-lst
       ;; 処理対象ウィンドウを取得
@@ -203,6 +211,8 @@ Face for inactive window.")
       ;; ウィンドウ以外を処理
       (unless (or (eq hw-tgt-win (minibuffer-window))
                   (eq hw-tgt-win hiwin-active-window)
+                  (when hiwin-ignore-minibuffer-selected-window
+                    (eq hw-tgt-win minibuffer-selected-window))
                   (string-match hiwin-ignore-buffer-name-regexp
                                 (buffer-name (window-buffer hw-tgt-win))))
         (save-selected-window
