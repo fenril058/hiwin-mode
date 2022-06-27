@@ -7,7 +7,7 @@
 ;;
 ;; Author: k.sugita
 ;; Last Modified:
-;; Version: 2.1.1
+;; Version: 2.2.1
 ;; Keywords: faces, editing, emulating
 ;;
 ;; This file is free software; you can redistribute it and/or modify
@@ -88,7 +88,7 @@
   "Visible active window mode."
   :group 'emacs)
 
-(defconst hiwin-version "2.1.1"
+(defconst hiwin-version "2.2.1"
   "Version number of hiwin-mode.")
 
 (defcustom hiwin-mode-lighter " hiwin"
