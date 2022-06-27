@@ -38,6 +38,10 @@
 
 ;;; Changes
 ;;
+;; 2022-06-28 ril
+;; - `select-window'のNORECORD optionをtにして記録されないようにした.
+;;
+;;
 ;; 2022-06-27 ril
 ;; - Emacs 27以上の対応として `hiwin-face'に :extend t を追加.
 ;; - DocumationとCommnetをわかりやすいように変更.
@@ -203,7 +207,7 @@ Face for inactive window.")
                                 (buffer-name (window-buffer hw-tgt-win))))
         (save-selected-window
           ;; 処理対象ウィンドウを選択
-          (select-window hw-tgt-win)
+          (select-window hw-tgt-win t)
           ;; バッファ末尾の場合, ポイントを一文字戻す.  overlayの
           ;; after-stringで末尾に改行をたくさん挿入するとき, こうしな
           ;; いとポイントが遠くに飛ばされてしまう.
