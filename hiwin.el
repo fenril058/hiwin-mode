@@ -7,7 +7,7 @@
 ;;
 ;; Author: k.sugita
 ;; Last Modified:
-;; Version: 2.00
+;; Version: 2.1.0
 ;; Keywords: faces, editing, emulating
 ;;
 ;; This file is free software; you can redistribute it and/or modify
@@ -41,6 +41,7 @@
 ;; 2022-06-27 ril
 ;; - Emacs 27以上の対応として `hiwin-face'に :extend t を追加.
 ;; - DocumationとCommnetをわかりやすいように変更.
+;; - Versionを2.1.0に変更
 ;;
 ;; 2016-02-07 ril
 ;; - 変数名や関数名をいろいろと変更.
