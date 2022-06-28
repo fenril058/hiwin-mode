@@ -2,8 +2,8 @@
 
 ## Introduction
 
-`hiwin.el` is a minor-mode of Emacs to change background color of
-deactive window.
+`hiwin.el` is a minor-mode of Emacs to change the background color of
+the deactive window.
 
 ## Screenshot
 
@@ -38,3 +38,8 @@ You can custmize this variable BEFORE enabling `hiwin-mode`. If you
 change it while enabling `hiwin-mode`, you have to run
 `hiwin-refresh-ignore-buffer-names` to
 refresh`hiwin-ignore-buffer-name-regexp`.
+
+#### hiwin-ignore-minibuffer-selected-window
+
+If the value is `non-nil`, the background color of the window selected
+just before the minibuffer does not change. The default value is `nil`.

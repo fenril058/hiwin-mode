@@ -6,9 +6,8 @@
 ;;               2016 ril
 ;;
 ;; Author: k.sugita
-;; Last Modified:
-;; Version: 2.1.0
 ;; Keywords: faces, editing, emulating
+;; Version: 2.2.2
 ;;
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -34,9 +33,22 @@
 ;;   (hiwin-activate)
 ;;   (set-face-background 'hiwin-face "gray80")
 ;;
+;; if you want to ignore the *eshell* buffer,
+;; put followings:
+;;   (add-to-list 'hiwin-ignore-buffer-names "*eshell*")
+;;
 ;; if you invisible active window, type M-x hiwin-deactivate.
 
 ;;; Changes
+;;
+;; 2022-06-28 ril
+;; - `select-window'のNORECORD optionをtにして記録されないようにした.
+;; - ミニバッファ直前のウィンドウを除外するかどうか選べるようにした.
+;;   `hiwin-ignore-minibuffer-selected-window'がnon-nilのとき除外.
+;;   デフォルトはnilで除外しない.
+;; - `post-command-hook'ではなく`window-configuration-change-hook'
+;;   にhookするようにした.  これで十分.
+;; - 以上の変更によりVersionを2.2.2に変更した.
 ;;
 ;; 2022-06-27 ril
 ;; - Emacs 27以上の対応として `hiwin-face'に :extend t を追加.
@@ -82,12 +94,17 @@
   "Visible active window mode."
   :group 'emacs)
 
-(defconst hiwin-version "2.1.0"
+(defconst hiwin-version "2.2.2"
   "Version number of hiwin-mode.")
 
 (defcustom hiwin-mode-lighter " hiwin"
   "Lighter of hiwin-mode."
   :type 'string
+  :group 'hiwin)
+
+(defcustom hiwin-ignore-minibuffer-selected-window nil
+  "もしこの変数が non-nil であれば,ミニバッファ直前のウィンドウをハイライト対象外にする."
+  :type 'boolean
   :group 'hiwin)
 
 (defcustom hiwin-ignore-buffer-names '("+draft/" "*helm")
@@ -188,6 +205,7 @@ Face for inactive window.")
         (hw-tgt-win nil)                ; 処理対象ウィンドウ
         (hw-win-lst (window-list))      ; ウィンドウリスト
         (hw-cnt 0)                      ; ループカウンタ
+        (minibuffer-selected-window (minibuffer-selected-window))
         )
     (while hw-win-lst
       ;; 処理対象ウィンドウを取得
@@ -199,11 +217,13 @@ Face for inactive window.")
       ;; ウィンドウ以外を処理
       (unless (or (eq hw-tgt-win (minibuffer-window))
                   (eq hw-tgt-win hiwin-active-window)
+                  (when hiwin-ignore-minibuffer-selected-window
+                    (eq hw-tgt-win minibuffer-selected-window))
                   (string-match hiwin-ignore-buffer-name-regexp
                                 (buffer-name (window-buffer hw-tgt-win))))
         (save-selected-window
           ;; 処理対象ウィンドウを選択
-          (select-window hw-tgt-win)
+          (select-window hw-tgt-win t)
           ;; バッファ末尾の場合, ポイントを一文字戻す.  overlayの
           ;; after-stringで末尾に改行をたくさん挿入するとき, こうしな
           ;; いとポイントが遠くに飛ばされてしまう.
@@ -224,20 +244,16 @@ Face for inactive window.")
     ))
 
 (defun hiwin-command-hook ()
-  "オーバーレイを再描画する.
-現在は前回の処理からウィンドウ数か, アクティブ ウィンドウが変更され
-ている場合に実行される."
-  (unless (and (eq hiwin-overlay-count (count-windows))
-               (eq hiwin-active-window (selected-window)))
-    (if executing-kbd-macro
-        (input-pending-p)
-      (condition-case hiwin-error
-          (hiwin-draw-ovl)
-        (error
-         (if (not (window-minibuffer-p (selected-window)))
-             (message "[%s] hiwin-mode catched error: %s"
-                      (format-time-string "%H:%M:%S" (current-time))
-                      hiwin-error) ))))))
+  "オーバーレイを再描画する."
+  (if executing-kbd-macro
+      (input-pending-p)
+    (condition-case hiwin-error
+        (hiwin-draw-ovl)
+      (error
+       (if (not (window-minibuffer-p (selected-window)))
+           (message "[%s] hiwin-mode catched error: %s"
+                    (format-time-string "%H:%M:%S" (current-time))
+                    hiwin-error))))))
 
 ;;;###autoload
 (defun hiwin-refresh-ignore-buffer-names ()
@@ -256,10 +272,10 @@ Face for inactive window.")
   (if hiwin-mode
       (progn
         (hiwin-refresh-ignore-buffer-names)
-        (add-hook 'post-command-hook 'hiwin-command-hook))
-    (remove-hook 'post-command-hook 'hiwin-command-hook)
-    (hiwin-delete-ovl)
-    ))
+        (add-hook 'window-configuration-change-hook 'hiwin-command-hook))
+    (remove-hook 'window-configuration-change-hook 'hiwin-command-hook)
+    (hiwin-delete-ovl))
+  )
 
 ;;;###autoload
 (defun hiwin-activate ()
