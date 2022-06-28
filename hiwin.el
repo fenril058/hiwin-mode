@@ -6,9 +6,8 @@
 ;;               2016 ril
 ;;
 ;; Author: k.sugita
-;; Last Modified:
-;; Version: 2.2.2
 ;; Keywords: faces, editing, emulating
+;; Version: 2.2.2
 ;;
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -34,6 +33,10 @@
 ;;   (hiwin-activate)
 ;;   (set-face-background 'hiwin-face "gray80")
 ;;
+;; if you want to ignore the *eshell* buffer,
+;; put followings:
+;;   (add-to-list 'hiwin-ignore-buffer-names "*eshell*")
+;;
 ;; if you invisible active window, type M-x hiwin-deactivate.
 
 ;;; Changes
@@ -41,8 +44,11 @@
 ;; 2022-06-28 ril
 ;; - `select-window'のNORECORD optionをtにして記録されないようにした.
 ;; - ミニバッファ直前のウィンドウを除外するかどうか選べるようにした.
-;;   `hiwin-ignore-minibuffer-selected-window' が non-nil のとき、
-;;   除外する.  デフォルトは nil で除外しない.
+;;   `hiwin-ignore-minibuffer-selected-window'がnon-nilのとき除外.
+;;   デフォルトはnilで除外しない.
+;; - `post-command-hook'ではなく`window-configuration-change-hook'
+;;   にhookするようにした.  これで十分.
+;; - 以上の変更によりVersionを2.2.2に変更した.
 ;;
 ;; 2022-06-27 ril
 ;; - Emacs 27以上の対応として `hiwin-face'に :extend t を追加.
