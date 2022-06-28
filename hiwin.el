@@ -7,7 +7,7 @@
 ;;
 ;; Author: k.sugita
 ;; Last Modified:
-;; Version: 2.2.1
+;; Version: 2.2.2
 ;; Keywords: faces, editing, emulating
 ;;
 ;; This file is free software; you can redistribute it and/or modify
@@ -88,7 +88,7 @@
   "Visible active window mode."
   :group 'emacs)
 
-(defconst hiwin-version "2.2.1"
+(defconst hiwin-version "2.2.2"
   "Version number of hiwin-mode.")
 
 (defcustom hiwin-mode-lighter " hiwin"
@@ -238,20 +238,16 @@ Face for inactive window.")
     ))
 
 (defun hiwin-command-hook ()
-  "オーバーレイを再描画する.
-現在は前回の処理からウィンドウ数か, アクティブ ウィンドウが変更され
-ている場合に実行される."
-  (unless (and (eq hiwin-overlay-count (count-windows))
-               (eq hiwin-active-window (selected-window)))
-    (if executing-kbd-macro
-        (input-pending-p)
-      (condition-case hiwin-error
-          (hiwin-draw-ovl)
-        (error
-         (if (not (window-minibuffer-p (selected-window)))
-             (message "[%s] hiwin-mode catched error: %s"
-                      (format-time-string "%H:%M:%S" (current-time))
-                      hiwin-error) ))))))
+  "オーバーレイを再描画する."
+  (if executing-kbd-macro
+      (input-pending-p)
+    (condition-case hiwin-error
+        (hiwin-draw-ovl)
+      (error
+       (if (not (window-minibuffer-p (selected-window)))
+           (message "[%s] hiwin-mode catched error: %s"
+                    (format-time-string "%H:%M:%S" (current-time))
+                    hiwin-error))))))
 
 ;;;###autoload
 (defun hiwin-refresh-ignore-buffer-names ()
@@ -270,10 +266,10 @@ Face for inactive window.")
   (if hiwin-mode
       (progn
         (hiwin-refresh-ignore-buffer-names)
-        (add-hook 'post-command-hook 'hiwin-command-hook))
-    (remove-hook 'post-command-hook 'hiwin-command-hook)
-    (hiwin-delete-ovl)
-    ))
+        (add-hook 'window-configuration-change-hook 'hiwin-command-hook))
+    (remove-hook 'window-configuration-change-hook 'hiwin-command-hook)
+    (hiwin-delete-ovl))
+  )
 
 ;;;###autoload
 (defun hiwin-activate ()
