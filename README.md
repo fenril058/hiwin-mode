@@ -2,8 +2,8 @@
 
 ## Introduction
 
-`hiwin.el` is a minor-mode of Emacs to change background color of
-deactive window.
+`hiwin.el` is a minor-mode of Emacs to change the background color of
+the deactive window.
 
 ## Screenshot
 
