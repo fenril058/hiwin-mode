@@ -7,7 +7,7 @@
 ;;
 ;; Author: k.sugita
 ;; Keywords: faces, editing, emulating
-;; Version: 2.2.2
+;; Version: 2.2.0
 ;;
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -41,6 +41,9 @@
 
 ;;; Changes
 ;;
+;; 2022-06-29
+;; - 下記のの変更によりVersionを2.2.0に変更した.
+;;
 ;; 2022-06-28 ril
 ;; - `select-window'のNORECORD optionをtにして記録されないようにした.
 ;; - ミニバッファ直前のウィンドウを除外するかどうか選べるようにした.
@@ -48,7 +51,6 @@
 ;;   デフォルトはnilで除外しない.
 ;; - `post-command-hook'ではなく`window-configuration-change-hook'
 ;;   にhookするようにした.  これで十分.
-;; - 以上の変更によりVersionを2.2.2に変更した.
 ;;
 ;; 2022-06-27 ril
 ;; - Emacs 27以上の対応として `hiwin-face'に :extend t を追加.
@@ -94,7 +96,7 @@
   "Visible active window mode."
   :group 'emacs)
 
-(defconst hiwin-version "2.2.2"
+(defconst hiwin-version "2.2.0"
   "Version number of hiwin-mode.")
 
 (defcustom hiwin-mode-lighter " hiwin"
