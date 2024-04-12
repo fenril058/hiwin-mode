@@ -11,15 +11,38 @@ the deactive window.
 
 ## Requirements
 
-- Emacs 23 or higher
+- Emacs 27 or higher
 
-## Installation
+## Installation & sample setting
+
+With `use-package.el` and [vc-use-package.el](https://github.com/slotThe/vc-use-package)
+```emacs-lisp
+(use-package hiwin-mode
+  :vc
+  (:fetcher github :repo fenril058/hiwin-mode)
+  :config
+  (hiwin-mode 1))
+```
+
+With [leaf.el](https://github.com/conao3/leaf.el):
+```emacs-lisp
+(leaf hiwin-mode
+  :vc
+  (:url "https://github.com/fenril058/hiwin-mode" :branch "main")
+  :custom-face
+  (hiwin-face . '((((class color) (background light))
+                   (:background "gray90"))))
+  :global-minor-mode t)
+```
+
 
 ## Basic Usage
+
 Enable hiwin-mode.
-```lisp
+```emacs-lisp
 (hiwin-mode 1)
 ```
+
 ## Customization
 
 #### hiwin-face
@@ -43,3 +66,7 @@ refresh`hiwin-ignore-buffer-name-regexp`.
 
 If the value is `non-nil`, the background color of the window selected
 just before the minibuffer does not change. The default value is `nil`.
+
+## Similar packages
+
+- [auto-dim-other-buffers.el](https://github.com/mina86/auto-dim-other-buffers.el)
