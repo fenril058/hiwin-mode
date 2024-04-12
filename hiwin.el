@@ -8,6 +8,8 @@
 ;; Author: k.sugita
 ;; Keywords: faces, editing, emulating
 ;; Version: 2.2.0
+;; URL: https://github.com/fenril058/hiwin-mode
+;; Package-Requires: ((emacs "27.1"))
 ;;
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
