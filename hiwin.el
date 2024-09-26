@@ -7,7 +7,7 @@
 ;;
 ;; Author: k.sugita
 ;; Keywords: faces, editing, emulating
-;; Version: 2.2.0
+;; Version: 2.2.1
 ;; URL: https://github.com/fenril058/hiwin-mode
 ;; Package-Requires: ((emacs "27.1"))
 ;;
@@ -43,8 +43,13 @@
 
 ;;; Changes
 ;;
+;; 204-09-26
+;; - Hook先を`window-configuration-change-hook'から
+;;   `window-state-change-hook'に変更した。
+;; - Versionを2.2.1に変更した。
+;;
 ;; 2022-06-29
-;; - 下記のの変更によりVersionを2.2.0に変更した.
+;; - 下記の変更によりversionを2.2.0に変更した.
 ;;
 ;; 2022-06-28 ril
 ;; - `select-window'のNORECORD optionをtにして記録されないようにした.
@@ -98,7 +103,7 @@
   "Visible active window mode."
   :group 'emacs)
 
-(defconst hiwin-version "2.2.0"
+(defconst hiwin-version "2.2.1"
   "Version number of hiwin-mode.")
 
 (defcustom hiwin-mode-lighter " hiwin"
@@ -276,8 +281,8 @@ Face for inactive window.")
   (if hiwin-mode
       (progn
         (hiwin-refresh-ignore-buffer-names)
-        (add-hook 'window-configuration-change-hook 'hiwin-command-hook))
-    (remove-hook 'window-configuration-change-hook 'hiwin-command-hook)
+        (add-hook 'window-state-change-hook 'hiwin-command-hook))
+    (remove-hook 'window-state-change-hook 'hiwin-command-hook)
     (hiwin-delete-ovl))
   )
 
