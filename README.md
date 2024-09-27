@@ -70,3 +70,4 @@ just before the minibuffer does not change. The default value is `nil`.
 ## Similar packages
 
 - [auto-dim-other-buffers.el](https://github.com/mina86/auto-dim-other-buffers.el)
+- [dimmer.el](https://github.com/gonewest818/dimmer.el)
