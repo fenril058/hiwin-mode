@@ -120,7 +120,7 @@
   "ハイライト対象外にするバッファ名のリスト.
 バッファ名にこのリストの文字列が含まれるとき,
 非アクティブウィンドウに表示されていても背景色を変えない."
-  :type 'list
+  :type '(repeat (symbol))
   :group 'hiwin)
 
 (defvar hiwin-ignore-buffer-name-regexp nil
