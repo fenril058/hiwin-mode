@@ -6,7 +6,7 @@
 (defmacro hiwin-test-with-windows (&rest body)
   "Run BODY with a clean window layout and restore it afterward."
   (declare (indent 0) (debug t))
-  \`(save-window-excursion
+  `(save-window-excursion
      (unwind-protect
          (progn
            (hiwin-mode -1)
