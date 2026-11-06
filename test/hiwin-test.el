@@ -6,13 +6,15 @@
 (defmacro hiwin-test-with-windows (&rest body)
   "Run BODY with a clean window layout and restore it afterward."
   (declare (indent 0) (debug t))
-  `(save-window-excursion
-     (unwind-protect
-         (progn
-           (hiwin-mode -1)
-           (delete-other-windows)
-           ,@body)
-       (hiwin-mode -1))))
+  `(let ((window-min-width 1)
+          (window-min-height 1))
+     (save-window-excursion
+       (unwind-protect
+           (progn
+             (hiwin-mode -1)
+             (delete-other-windows)
+             ,@body)
+         (hiwin-mode -1)))))
 
 (ert-deftest hiwin-test-selection-and-overlay-reuse ()
   (hiwin-test-with-windows
