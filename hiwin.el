@@ -170,8 +170,10 @@ This adapts the padding to window resizes instead of always displaying
 a fixed number of newlines.
 
 An integer specifies a fixed number of lines.  Set it to zero to
-disable EOB padding.  For buffers using unusually small or variable
-line heights, a larger fixed value may be useful."
+disable EOB padding.  In empty buffers, virtual newlines would move the
+cursor, so a window-filtered default-face remapping is used instead.
+Zero also disables that remapping.  For buffers using unusually small
+or variable line heights, a larger fixed value may be useful."
   :type '(choice (const :tag "Fit to window height" nil)
                  (integer :tag "Fixed line count"))
   :set (lambda (symbol value)
