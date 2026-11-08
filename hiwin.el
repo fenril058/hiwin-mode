@@ -7,7 +7,7 @@
 ;;
 ;; Author: k.sugita
 ;; Keywords: faces, editing, emulating
-;; Version: 2.3.1
+;; Version: 2.3.2
 ;; URL: https://github.com/fenril058/hiwin-mode
 ;; Package-Requires: ((emacs "27.1"))
 ;;
@@ -42,6 +42,11 @@
 ;; if you invisible active window, type M-x hiwin-deactivate.
 
 ;;; Changes
+;;
+;; 2026-11-08
+;; - Refresh only the affected frame from window-state-change-functions.
+;; - Redraw after customizing minibuffer-selected-window exclusion.
+;; - Cover frame-scoped refresh and minibuffer exclusion with ERT.
 ;;
 ;; 2026-11-08
 ;; - Size the EOB padding to the window height instead of a fixed 96 lines.
@@ -113,7 +118,7 @@
   "Visible active window mode."
   :group 'emacs)
 
-(defconst hiwin-version "2.3.1"
+(defconst hiwin-version "2.3.2"
   "Version number of hiwin-mode.")
 
 (defcustom hiwin-mode-lighter " hiwin"
@@ -122,8 +127,12 @@
   :group 'hiwin)
 
 (defcustom hiwin-ignore-minibuffer-selected-window nil
-  "もしこの変数が non-nil であれば,ミニバッファ直前のウィンドウをハイライト対象外にする."
+  "If non-nil, do not dim the window selected before the minibuffer."
   :type 'boolean
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when (bound-and-true-p hiwin-mode)
+           (hiwin-draw-ovl)))
   :group 'hiwin)
 
 (defcustom hiwin-ignore-buffer-names '("+draft/" "*helm")
@@ -230,33 +239,44 @@ Do not select WINDOW or change its point."
                              (propertize (make-string lines ?\n)
                                          'face 'hiwin-face))))))))))
 
-(defun hiwin-draw-ovl ()
-  "Refresh inactive window overlays without recreating unchanged ones."
-  (interactive)
-  (let (live-windows stale-windows)
-    (dolist (frame (frame-list))
-      (when (frame-live-p frame)
-        (dolist (window (window-list frame))
-          (push window live-windows)
-          (hiwin--update-window window))))
-    ;; Discard overlays for deleted windows and frames.
+(defun hiwin--refresh-frame (frame)
+  "Refresh inactive overlays in the live FRAME."
+  (when (frame-live-p frame)
+    (dolist (window (window-list frame))
+      (hiwin--update-window window))))
+
+(defun hiwin--cleanup-stale-overlays ()
+  "Discard overlays for deleted windows and frames."
+  (let (stale-windows)
     (maphash (lambda (window _overlay)
-               (unless (memq window live-windows)
+               (unless (window-live-p window)
                  (push window stale-windows)))
              hiwin-overlays)
     (dolist (window stale-windows)
       (hiwin--remove-window-overlay window))))
+
+(defun hiwin-draw-ovl ()
+  "Refresh all inactive window overlays without recreating unchanged ones."
+  (interactive)
+  (dolist (frame (frame-list))
+    (hiwin--refresh-frame frame))
+  (hiwin--cleanup-stale-overlays))
 
 (defun hiwin-create-ovl ()
   "Ensure inactive window overlays exist.
 This function is retained for compatibility with older configurations."
   (hiwin-draw-ovl))
 
-(defun hiwin-command-hook (&optional _frame)
-  "Update overlays after a window state change.
-FRAME is supplied by \`window-state-change-functions'."
+(defun hiwin-command-hook (&optional frame)
+  "Refresh overlays after a state change on FRAME.
+Called with FRAME by `window-state-change-functions'.  Without FRAME,
+refresh all frames for compatibility with manual invocations."
   (when hiwin-mode
-    (hiwin-draw-ovl)))
+    (if frame
+        (progn
+          (hiwin--refresh-frame frame)
+          (hiwin--cleanup-stale-overlays))
+      (hiwin-draw-ovl))))
 
 ;;;###autoload
 (defun hiwin-refresh-ignore-buffer-names ()

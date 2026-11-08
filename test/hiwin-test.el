@@ -126,5 +126,91 @@
           (should (= (length (overlay-get overlay 'after-string))
                      (1+ (window-body-height other)))))))))
 
+(ert-deftest hiwin-test-minibuffer-exclusion-updates-on-customize ()
+  (hiwin-test-with-windows
+    (with-temp-buffer
+      (let* ((original (default-value 'hiwin-ignore-minibuffer-selected-window))
+             (first (selected-window))
+             (other (split-window-right)))
+        (set-window-buffer first (current-buffer))
+        (set-window-buffer other (current-buffer))
+        (hiwin-mode 1)
+        (unwind-protect
+            (cl-letf (((symbol-function 'minibuffer-selected-window)
+                       (lambda () other)))
+              (customize-set-variable 'hiwin-ignore-minibuffer-selected-window nil)
+              (should (overlayp (gethash other hiwin-overlays)))
+              (customize-set-variable 'hiwin-ignore-minibuffer-selected-window t)
+              (should-not (gethash other hiwin-overlays))
+              (should-not (gethash first hiwin-overlays))
+              (customize-set-variable 'hiwin-ignore-minibuffer-selected-window nil)
+              (should (overlayp (gethash other hiwin-overlays))))
+          (customize-set-variable 'hiwin-ignore-minibuffer-selected-window
+                                  original))))))
+
+(ert-deftest hiwin-test-frame-scoped-update ()
+  "A window-state callback refreshes only its reported frame."
+  (hiwin-test-with-windows
+    (with-temp-buffer
+      (insert "frame-specific test\n")
+      (let* ((first (selected-window))
+             (second (split-window-right))
+             (third (split-window first nil 'below))
+             (fourth (split-window second nil 'below))
+             (frame-a 'hiwin-test-frame-a)
+             (frame-b 'hiwin-test-frame-b)
+             (hiwin-overlays (make-hash-table :test #'eq))
+             (hiwin-mode t)
+             (hiwin-eob-overlay-lines 3))
+        (dolist (window (list first second third fourth))
+          (set-window-buffer window (current-buffer)))
+        ;; Model two frames with separate selected and inactive windows.
+        ;; Real windows keep the overlay/window operations meaningful in batch.
+        (unwind-protect
+            (cl-letf (((symbol-function 'frame-list)
+                       (lambda () (list frame-a frame-b)))
+                      ((symbol-function 'frame-live-p)
+                       (lambda (frame) (memq frame (list frame-a frame-b))))
+                      ((symbol-function 'window-list)
+                       (lambda (&optional frame &rest _args)
+                         (if (eq frame frame-a)
+                             (list first third)
+                           (list second fourth))))
+                      ((symbol-function 'window-frame)
+                       (lambda (window)
+                         (if (memq window (list first third)) frame-a frame-b)))
+                      ((symbol-function 'frame-selected-window)
+                       (lambda (frame)
+                         (if (eq frame frame-a) first second))))
+              (hiwin-draw-ovl)
+              (should (overlayp (gethash third hiwin-overlays)))
+              (should (overlayp (gethash fourth hiwin-overlays)))
+              (should-not (gethash first hiwin-overlays))
+              (should-not (gethash second hiwin-overlays))
+              (let* ((a (gethash third hiwin-overlays))
+                     (b (gethash fourth hiwin-overlays))
+                     (hiwin-eob-overlay-lines 7))
+                (hiwin-command-hook frame-a)
+                (should (= (length (overlay-get a 'after-string)) 7))
+                (should (= (length (overlay-get b 'after-string)) 3))
+                (should (eq a (gethash third hiwin-overlays)))
+                (should (eq b (gethash fourth hiwin-overlays)))
+                (hiwin-draw-ovl)
+                (should (= (length (overlay-get b 'after-string)) 7))))
+          (hiwin-delete-ovl))))))
+
+(ert-deftest hiwin-test-theme-face-is-dynamic ()
+  "Overlays refer to hiwin-face instead of snapshotting theme colors."
+  (hiwin-test-with-windows
+    (with-temp-buffer
+      (let ((other (split-window-right)))
+        (set-window-buffer other (current-buffer))
+        (hiwin-mode 1)
+        (let ((overlay (gethash other hiwin-overlays)))
+          (should (eq (overlay-get overlay 'face) 'hiwin-face))
+          (should (eq (get-text-property 0 'face
+                                         (overlay-get overlay 'after-string))
+                      'hiwin-face)))))))
+
 (provide 'hiwin-test)
 ;;; hiwin-test.el ends here
