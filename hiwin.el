@@ -294,14 +294,27 @@ Do not select WINDOW or change its point."
       (hiwin--update-window window))))
 
 (defun hiwin--cleanup-stale-overlays ()
-  "Discard overlays for deleted windows and frames."
-  (let (stale-windows)
+  "Discard overlays and face remappings no longer used by windows."
+  (let (stale-windows stale-buffers)
     (maphash (lambda (window _overlay)
                (unless (window-live-p window)
                  (push window stale-windows)))
              hiwin-overlays)
     (dolist (window stale-windows)
-      (hiwin--remove-window-overlay window))))
+      (hiwin--remove-window-overlay window))
+    ;; An empty buffer might be killed or disappear from all windows
+    ;; while hiwin-mode stays active.  Do not retain it indefinitely.
+    (maphash (lambda (buffer _cookie)
+               (unless (and (buffer-live-p buffer)
+                            (get-buffer-window-list buffer nil t))
+                 (push buffer stale-buffers)))
+             hiwin--empty-buffer-remappings)
+    (dolist (buffer stale-buffers)
+      (let ((cookie (gethash buffer hiwin--empty-buffer-remappings)))
+        (when (buffer-live-p buffer)
+          (with-current-buffer buffer
+            (face-remap-remove-relative cookie)))
+        (remhash buffer hiwin--empty-buffer-remappings)))))
 
 (defun hiwin-draw-ovl ()
   "Refresh all inactive window overlays without recreating unchanged ones."
