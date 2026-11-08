@@ -7,7 +7,7 @@
 ;;
 ;; Author: k.sugita
 ;; Keywords: faces, editing, emulating
-;; Version: 2.3.0
+;; Version: 2.3.1
 ;; URL: https://github.com/fenril058/hiwin-mode
 ;; Package-Requires: ((emacs "27.1"))
 ;;
@@ -42,6 +42,10 @@
 ;; if you invisible active window, type M-x hiwin-deactivate.
 
 ;;; Changes
+;;
+;; 2026-11-08
+;; - Size the EOB padding to the window height instead of a fixed 96 lines.
+;; - Allow explicit EOB padding line counts, including zero, via Customize.
 ;;
 ;; 2026-11-06
 ;; - Track overlays by window and reuse them when possible.
@@ -109,7 +113,7 @@
   "Visible active window mode."
   :group 'emacs)
 
-(defconst hiwin-version "2.3.0"
+(defconst hiwin-version "2.3.1"
   "Version number of hiwin-mode.")
 
 (defcustom hiwin-mode-lighter " hiwin"
@@ -144,8 +148,28 @@
   "非アクティブウィンドウのオーバーレイ描画用のフェイス.
 Face for inactive window.")
 
-(defvar hiwin-eob-overlay-lines 96
-  "Number of face-colored newlines appended at the end of an inactive window.")
+(defcustom hiwin-eob-overlay-lines nil
+  "Number of colored virtual lines displayed after the end of a buffer.
+When nil, use one more line than the height of each inactive window.
+This adapts the padding to window resizes instead of always displaying
+a fixed number of newlines.
+
+An integer specifies a fixed number of lines.  Set it to zero to
+disable EOB padding.  For buffers using unusually small or variable
+line heights, a larger fixed value may be useful."
+  :type '(choice (const :tag "Fit to window height" nil)
+                 (integer :tag "Fixed line count"))
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when (bound-and-true-p hiwin-mode)
+           (hiwin-draw-ovl)))
+  :group 'hiwin)
+
+(defun hiwin--eob-line-count (window)
+  "Return the number of virtual EOB lines required for WINDOW."
+  (if (null hiwin-eob-overlay-lines)
+      (1+ (window-body-height window))
+    (max 0 hiwin-eob-overlay-lines)))
 
 (defvar hiwin-overlays (make-hash-table :test #'eq)
   "Hash table mapping inactive windows to their overlays.")
@@ -196,16 +220,15 @@ Do not select WINDOW or change its point."
             (overlay-put overlay 'window window)
             (overlay-put overlay 'priority 0)
             (puthash window overlay hiwin-overlays))
-          ;; Keep the existing EOB treatment for compatibility, but do not
-          ;; rebuild its display string unless the setting has changed.
-          (unless (equal (overlay-get overlay 'hiwin-eob-lines)
-                         hiwin-eob-overlay-lines)
-            (overlay-put overlay 'hiwin-eob-lines hiwin-eob-overlay-lines)
-            (overlay-put overlay 'after-string
-                         (when (> hiwin-eob-overlay-lines 0)
-                           (propertize
-                            (make-string hiwin-eob-overlay-lines ?\n)
-                            'face 'hiwin-face)))))))))
+          ;; EOB has no real buffer text to cover.  Keep virtual lines,
+          ;; but use only as many as WINDOW can display.
+          (let ((lines (hiwin--eob-line-count window)))
+            (unless (equal (overlay-get overlay 'hiwin-eob-lines) lines)
+              (overlay-put overlay 'hiwin-eob-lines lines)
+              (overlay-put overlay 'after-string
+                           (when (> lines 0)
+                             (propertize (make-string lines ?\n)
+                                         'face 'hiwin-face))))))))))
 
 (defun hiwin-draw-ovl ()
   "Refresh inactive window overlays without recreating unchanged ones."
