@@ -57,10 +57,9 @@ Face for deactive windows. For example;
 List of the buffer names which do not change background color when
 they are in a deactive window.
 
-You can custmize this variable BEFORE enabling `hiwin-mode`. If you
-change it while enabling `hiwin-mode`, you have to run
-`hiwin-refresh-ignore-buffer-names` to
-refresh`hiwin-ignore-buffer-name-regexp`.
+Changing this option through Customize updates the display immediately.
+If you change it with `setq` while `hiwin-mode` is enabled, run
+`M-x hiwin-refresh-ignore-buffer-names` to rebuild the exclusion regexp.
 
 #### hiwin-eob-overlay-lines
 
@@ -75,8 +74,9 @@ the underlying buffer text.
 
 #### hiwin-ignore-minibuffer-selected-window
 
-If the value is `non-nil`, the background color of the window selected
-just before the minibuffer does not change. The default value is `nil`.
+When non-nil, the window selected immediately before entering the minibuffer
+is not dimmed. The default is `nil`. Changes made through Customize take
+effect immediately.
 
 ## Similar packages
 
