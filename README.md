@@ -62,6 +62,17 @@ change it while enabling `hiwin-mode`, you have to run
 `hiwin-refresh-ignore-buffer-names` to
 refresh`hiwin-ignore-buffer-name-regexp`.
 
+#### hiwin-eob-overlay-lines
+
+How many virtual, face-colored blank lines to draw past the end of a
+buffer in an inactive window. By default, `nil` adapts to each window's
+height rather than inserting 96 newlines into the display. Set to `0`
+to disable the extra lines, or an integer to force a specific count.
+
+The padding is implemented with an overlay's `after-string`, so it
+can still affect display near the end of a buffer. It does not modify
+the underlying buffer text.
+
 #### hiwin-ignore-minibuffer-selected-window
 
 If the value is `non-nil`, the background color of the window selected
