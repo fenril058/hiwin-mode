@@ -95,9 +95,11 @@
 (ert-deftest hiwin-test-eob-padding-follows-window-height ()
   (hiwin-test-with-windows
     (with-temp-buffer
+      (insert "buffer content")
       (let ((hiwin-eob-overlay-lines nil)
             (other (split-window-right)))
         (set-window-buffer other (current-buffer))
+        (set-window-point other (point-max))
         (hiwin-mode 1)
         (let* ((overlay (gethash other hiwin-overlays))
                (padding (overlay-get overlay 'after-string)))
@@ -203,6 +205,7 @@
   "Overlays refer to hiwin-face instead of snapshotting theme colors."
   (hiwin-test-with-windows
     (with-temp-buffer
+      (insert "theme buffer text")
       (let ((other (split-window-right)))
         (set-window-buffer other (current-buffer))
         (hiwin-mode 1)
@@ -213,30 +216,38 @@
                       'hiwin-face)))))))
 
 
-(ert-deftest hiwin-test-empty-buffer-eob-cursor-anchor ()
-  "An empty window's EOB text has a graphical cursor position."
+(ert-deftest hiwin-test-empty-buffer-remapped-without-virtual-lines ()
+  "Empty inactive buffers need no virtual text to be fully dimmable."
   (hiwin-test-with-windows
     (with-temp-buffer
       (let* ((hiwin-eob-overlay-lines 3)
+             (selected (selected-window))
              (other (split-window-right)))
+        (set-window-buffer selected (current-buffer))
         (set-window-buffer other (current-buffer))
-        (should (= (point-min) (point-max)))
         (hiwin-mode 1)
-        (let* ((overlay (gethash other hiwin-overlays))
-               (padding (overlay-get overlay 'after-string)))
+        (let ((overlay (gethash other hiwin-overlays)))
           (should (overlayp overlay))
           (should (equal (buffer-string) ""))
           (should (= (window-point other) (point-min)))
           (should (= (overlay-start overlay) (overlay-end overlay)))
-          (should (= (aref padding 0) ?\s))
-          (should (= (cl-count ?\n padding) 3))
-          (should (get-text-property 0 'cursor padding))
-          (should (eq (get-text-property 0 'face padding) 'hiwin-face))
-          ;; The display-only anchor must not insert text or move point.
+          (should-not (overlay-get overlay 'after-string))
+          (should (window-parameter other 'hiwin--empty-background))
+          (should-not (window-parameter selected 'hiwin--empty-background))
+          (should (gethash (current-buffer) hiwin--empty-buffer-remappings))
           (hiwin-draw-ovl)
+          (should-not (overlay-get overlay 'after-string))
           (should (equal (buffer-string) ""))
-          (should (= (window-point other) (point-min)))
-          (should (eq padding (overlay-get overlay 'after-string))))))))
+          ;; Explicit zero must still disable EOB coloring.
+          (let ((hiwin-eob-overlay-lines 0))
+            (hiwin-draw-ovl)
+            (should-not (window-parameter other 'hiwin--empty-background)))
+          (hiwin-draw-ovl)
+          (should (window-parameter other 'hiwin--empty-background))
+          (hiwin-mode -1)
+          (should-not (window-parameter other 'hiwin--empty-background))
+          (should-not (gethash (current-buffer)
+                               hiwin--empty-buffer-remappings)))))))
 
 (ert-deftest hiwin-test-padding-for-nonempty-buffer ()
   "A trailing EOB display space does not modify real buffer contents."
@@ -252,9 +263,9 @@
                (padding (overlay-get overlay 'after-string)))
           (should (equal (buffer-string) "abc"))
           (should (= (window-point other) (point-max)))
-          (should (= (aref padding 0) ?\s))
+          (should (= (aref padding 0) ?\n))
           (should (= (cl-count ?\n padding) 2))
-          (should (get-text-property 0 'cursor padding))
+          (should-not (get-text-property 0 'cursor padding))
           (should (eq (get-text-property 0 'face padding) 'hiwin-face)))))))
 
 (provide 'hiwin-test)
