@@ -268,5 +268,23 @@
           (should-not (get-text-property 0 'cursor padding))
           (should (eq (get-text-property 0 'face padding) 'hiwin-face)))))))
 
+
+(ert-deftest hiwin-test-empty-buffer-remapping-cleanup ()
+  "Remapping is removed when its buffer is not displayed anywhere."
+  (hiwin-test-with-windows
+    (let ((buffer (generate-new-buffer " *hiwin-test-unused-empty*"))
+          (other (split-window-right)))
+      (unwind-protect
+          (progn
+            (set-window-buffer other buffer)
+            (hiwin-mode 1)
+            (should (gethash buffer hiwin--empty-buffer-remappings))
+            (set-window-buffer other (window-buffer (selected-window)))
+            (hiwin-draw-ovl)
+            (should-not (gethash buffer hiwin--empty-buffer-remappings))
+            (with-current-buffer buffer
+              (should-not (assq 'default face-remapping-alist))))
+        (kill-buffer buffer)))))
+
 (provide 'hiwin-test)
 ;;; hiwin-test.el ends here
