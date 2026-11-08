@@ -32,4 +32,4 @@ jobs:
       - name: Run graphical ERT
         run: |
           emacs --version | head -1
-          timeout -k 5s 120s xvfb-run -a emacs -Q -L . --eval '(condition-case err (progn (load-file "test/hiwin-gui-test.el") (ert-run-tests-batch-and-exit)) (error (princ (format "GUI ERT error: %S\n" err) (quote external-debugging-output)) (kill-emacs 2)))'
+          timeout -k 5s 120s xvfb-run -a emacs -Q -L . --eval '(condition-case err (progn (load-file "test/hiwin-gui-test.el") (let ((stats (ert-run-tests-batch))) (kill-emacs (if (zerop (ert-stats-completed-unexpected stats)) 0 1)))) (error (princ (format "GUI ERT error: %S\n" err) (quote external-debugging-output)) (kill-emacs 2)))'
