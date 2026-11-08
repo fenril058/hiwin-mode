@@ -191,7 +191,7 @@ the cursor at EOB.  Cursor properties on newlines have no effect."
   (when (> lines 0)
     (let ((padding (propertize (concat " " (make-string lines ?\n))
                                'face 'hiwin-face)))
-      (put-text-property 0 1 'cursor t padding)
+      (put-text-property 0 1 'cursor 1 padding)
       padding)))
 
 (defvar hiwin-overlays (make-hash-table :test #'eq)
