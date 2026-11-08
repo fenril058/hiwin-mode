@@ -1,6 +1,7 @@
 ;;; hiwin-test.el --- Tests for hiwin.el -*- lexical-binding: t; -*-
 
 (require 'ert)
+(require 'cl-lib)
 (require 'hiwin)
 
 (defmacro hiwin-test-with-windows (&rest body)
@@ -90,6 +91,40 @@
             (hiwin-draw-ovl)
             (should-not (gethash second hiwin-overlays)))
         (kill-buffer ignored)))))
+
+(ert-deftest hiwin-test-eob-padding-follows-window-height ()
+  (hiwin-test-with-windows
+    (with-temp-buffer
+      (let ((hiwin-eob-overlay-lines nil)
+            (other (split-window-right)))
+        (set-window-buffer other (current-buffer))
+        (hiwin-mode 1)
+        (let* ((overlay (gethash other hiwin-overlays))
+               (padding (overlay-get overlay 'after-string)))
+          (should (overlayp overlay))
+          (should (= (length padding) (1+ (window-body-height other))))
+          (should (eq (get-text-property 0 'face padding) 'hiwin-face))
+          (should (= (window-point other) (point-max)))
+          ;; A redundant refresh must not allocate another padding string.
+          (hiwin-draw-ovl)
+          (should (eq padding (overlay-get overlay 'after-string)))
+          ;; Pretend that the window height changed: the padding must follow.
+          (cl-letf (((symbol-function 'window-body-height)
+                     (lambda (&rest _args) 12)))
+            (hiwin-draw-ovl)
+            (should (= (length (overlay-get overlay 'after-string)) 13)))
+          ;; A zero override disables only the EOB padding, not the overlay.
+          (let ((hiwin-eob-overlay-lines 0))
+            (hiwin-draw-ovl)
+            (should-not (overlay-get overlay 'after-string))
+            (should (eq (gethash other hiwin-overlays) overlay)))
+          ;; Explicit padding sizes remain compatible with old settings.
+          (let ((hiwin-eob-overlay-lines 5))
+            (hiwin-draw-ovl)
+            (should (= (length (overlay-get overlay 'after-string)) 5)))
+          (hiwin-draw-ovl)
+          (should (= (length (overlay-get overlay 'after-string))
+                     (1+ (window-body-height other)))))))))
 
 (provide 'hiwin-test)
 ;;; hiwin-test.el ends here
