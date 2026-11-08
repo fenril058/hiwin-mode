@@ -102,7 +102,7 @@
         (let* ((overlay (gethash other hiwin-overlays))
                (padding (overlay-get overlay 'after-string)))
           (should (overlayp overlay))
-          (should (= (length padding) (1+ (window-body-height other))))
+          (should (= (cl-count ?\n padding) (1+ (window-body-height other))))
           (should (eq (get-text-property 0 'face padding) 'hiwin-face))
           (should (= (window-point other) (point-max)))
           ;; A redundant refresh must not allocate another padding string.
@@ -112,7 +112,7 @@
           (cl-letf (((symbol-function 'window-body-height)
                      (lambda (&rest _args) 12)))
             (hiwin-draw-ovl)
-            (should (= (length (overlay-get overlay 'after-string)) 13)))
+            (should (= (cl-count ?\n (overlay-get overlay 'after-string)) 13)))
           ;; A zero override disables only the EOB padding, not the overlay.
           (let ((hiwin-eob-overlay-lines 0))
             (hiwin-draw-ovl)
@@ -121,9 +121,9 @@
           ;; Explicit padding sizes remain compatible with old settings.
           (let ((hiwin-eob-overlay-lines 5))
             (hiwin-draw-ovl)
-            (should (= (length (overlay-get overlay 'after-string)) 5)))
+            (should (= (cl-count ?\n (overlay-get overlay 'after-string)) 5)))
           (hiwin-draw-ovl)
-          (should (= (length (overlay-get overlay 'after-string))
+          (should (= (cl-count ?\n (overlay-get overlay 'after-string))
                      (1+ (window-body-height other)))))))))
 
 (ert-deftest hiwin-test-minibuffer-exclusion-updates-on-customize ()
@@ -191,12 +191,12 @@
                      (b (gethash fourth hiwin-overlays))
                      (hiwin-eob-overlay-lines 7))
                 (hiwin-command-hook frame-a)
-                (should (= (length (overlay-get a 'after-string)) 7))
-                (should (= (length (overlay-get b 'after-string)) 3))
+                (should (= (cl-count ?\n (overlay-get a 'after-string)) 7))
+                (should (= (cl-count ?\n (overlay-get b 'after-string)) 3))
                 (should (eq a (gethash third hiwin-overlays)))
                 (should (eq b (gethash fourth hiwin-overlays)))
                 (hiwin-draw-ovl)
-                (should (= (length (overlay-get b 'after-string)) 7))))
+                (should (= (cl-count ?\n (overlay-get b 'after-string)) 7))))
           (hiwin-delete-ovl))))))
 
 (ert-deftest hiwin-test-theme-face-is-dynamic ()
@@ -211,6 +211,51 @@
           (should (eq (get-text-property 0 'face
                                          (overlay-get overlay 'after-string))
                       'hiwin-face)))))))
+
+
+(ert-deftest hiwin-test-empty-buffer-eob-cursor-anchor ()
+  "An empty window's EOB text has a graphical cursor position."
+  (hiwin-test-with-windows
+    (with-temp-buffer
+      (let* ((hiwin-eob-overlay-lines 3)
+             (other (split-window-right)))
+        (set-window-buffer other (current-buffer))
+        (should (= (point-min) (point-max)))
+        (hiwin-mode 1)
+        (let* ((overlay (gethash other hiwin-overlays))
+               (padding (overlay-get overlay 'after-string)))
+          (should (overlayp overlay))
+          (should (equal (buffer-string) ""))
+          (should (= (window-point other) (point-min)))
+          (should (= (overlay-start overlay) (overlay-end overlay)))
+          (should (= (aref padding 0) ?\s))
+          (should (= (cl-count ?\n padding) 3))
+          (should (get-text-property 0 'cursor padding))
+          (should (eq (get-text-property 0 'face padding) 'hiwin-face))
+          ;; The display-only anchor must not insert text or move point.
+          (hiwin-draw-ovl)
+          (should (equal (buffer-string) ""))
+          (should (= (window-point other) (point-min)))
+          (should (eq padding (overlay-get overlay 'after-string))))))))
+
+(ert-deftest hiwin-test-padding-for-nonempty-buffer ()
+  "A trailing EOB display space does not modify real buffer contents."
+  (hiwin-test-with-windows
+    (with-temp-buffer
+      (insert "abc")
+      (let* ((hiwin-eob-overlay-lines 2)
+             (other (split-window-right)))
+        (set-window-buffer other (current-buffer))
+        (set-window-point other (point-max))
+        (hiwin-mode 1)
+        (let* ((overlay (gethash other hiwin-overlays))
+               (padding (overlay-get overlay 'after-string)))
+          (should (equal (buffer-string) "abc"))
+          (should (= (window-point other) (point-max)))
+          (should (= (aref padding 0) ?\s))
+          (should (= (cl-count ?\n padding) 2))
+          (should (get-text-property 0 'cursor padding))
+          (should (eq (get-text-property 0 'face padding) 'hiwin-face)))))))
 
 (provide 'hiwin-test)
 ;;; hiwin-test.el ends here
