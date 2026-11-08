@@ -44,8 +44,8 @@
 ;;; Changes
 ;;
 ;; 2026-11-09
-;; - Use a cursor-bearing display space before virtual EOB newlines.
-;;   Avoid an apparent extra first line in empty inactive buffers.
+;; - Avoid EOB display strings in empty buffers to preserve cursor position.
+;; - Fill empty inactive windows using a window-filtered default face remap.
 ;;
 ;; 2026-11-08
 ;; - Refresh only the affected frame from window-state-change-functions.
@@ -118,6 +118,8 @@
 
 ;;; Code:
 
+(require 'face-remap)
+
 (defgroup hiwin nil
   "Visible active window mode."
   :group 'emacs)
@@ -184,23 +186,38 @@ line heights, a larger fixed value may be useful."
       (1+ (window-body-height window))
     (max 0 hiwin-eob-overlay-lines)))
 
-(defun hiwin--eob-padding-string (lines)
-  "Return a face-colored display string with LINES virtual newlines.
-A graphic space precedes the newlines to provide an actual glyph for
-the cursor at EOB.  Cursor properties on newlines have no effect."
-  (when (> lines 0)
-    (let ((padding (propertize (concat " " (make-string lines ?\n))
-                               'face 'hiwin-face)))
-      (put-text-property 0 1 'cursor 1 padding)
-      padding)))
-
 (defvar hiwin-overlays (make-hash-table :test #'eq)
   "Hash table mapping inactive windows to their overlays.")
 
+(defvar hiwin--empty-buffer-remappings (make-hash-table :test #'eq)
+  "Map buffers to their window-filtered background remapping cookies.")
+
+(defun hiwin--ensure-empty-buffer-remap (buffer)
+  "Set up a filtered default-face remapping in BUFFER once.
+Only windows with the hiwin--empty-background parameter receive it."
+  (unless (gethash buffer hiwin--empty-buffer-remappings)
+    (with-current-buffer buffer
+      (puthash buffer
+               (face-remap-add-relative
+                'default
+                '(:filtered (:window hiwin--empty-background t) hiwin-face))
+               hiwin--empty-buffer-remappings))))
+
+(defun hiwin--clear-empty-buffer-remaps ()
+  "Remove all face remappings installed by hiwin."
+  (maphash (lambda (buffer cookie)
+             (when (buffer-live-p buffer)
+               (with-current-buffer buffer
+                 (face-remap-remove-relative cookie))))
+           hiwin--empty-buffer-remappings)
+  (clrhash hiwin--empty-buffer-remappings))
+
 (defun hiwin-delete-ovl ()
   "Delete every overlay managed by hiwin."
-  (maphash (lambda (_window overlay)
-             (delete-overlay overlay))
+  (maphash (lambda (window overlay)
+             (delete-overlay overlay)
+             (when (window-live-p window)
+               (set-window-parameter window 'hiwin--empty-background nil)))
            hiwin-overlays)
   (clrhash hiwin-overlays))
 
@@ -218,7 +235,10 @@ the cursor at EOB.  Cursor properties on newlines have no effect."
   (let ((overlay (gethash window hiwin-overlays)))
     (when overlay
       (delete-overlay overlay)
-      (remhash window hiwin-overlays))))
+      (remhash window hiwin-overlays)))
+  (when (and (window-live-p window)
+             (window-parameter window 'hiwin--empty-background))
+    (set-window-parameter window 'hiwin--empty-background nil)))
 
 (defun hiwin--update-window (window)
   "Ensure WINDOW has an overlay exactly when it should be dimmed.
@@ -228,7 +248,19 @@ Do not select WINDOW or change its point."
           (hiwin--ignored-window-p window))
       (hiwin--remove-window-overlay window)
     (let* ((buffer (window-buffer window))
-           (overlay (gethash window hiwin-overlays)))
+           (overlay (gethash window hiwin-overlays))
+           (empty (with-current-buffer buffer (zerop (buffer-size))))
+           (fill-empty (and empty
+                            (or (null hiwin-eob-overlay-lines)
+                                (> hiwin-eob-overlay-lines 0)))))
+      ;; A virtual EOB newline shifts the cursor in an empty buffer.
+      ;; For that case only, use a window-filtered default face instead.
+      (when fill-empty
+        (hiwin--ensure-empty-buffer-remap buffer))
+      (unless (eq (window-parameter window 'hiwin--empty-background)
+                  (and fill-empty t))
+        (set-window-parameter window 'hiwin--empty-background
+                              (and fill-empty t)))
       (with-current-buffer buffer
         (save-restriction
           (widen)
@@ -245,11 +277,13 @@ Do not select WINDOW or change its point."
             (puthash window overlay hiwin-overlays))
           ;; EOB has no real buffer text to cover.  Keep virtual lines,
           ;; but use only as many as WINDOW can display.
-          (let ((lines (hiwin--eob-line-count window)))
+          (let ((lines (if empty 0 (hiwin--eob-line-count window))))
             (unless (equal (overlay-get overlay 'hiwin-eob-lines) lines)
               (overlay-put overlay 'hiwin-eob-lines lines)
               (overlay-put overlay 'after-string
-                           (hiwin--eob-padding-string lines)))))))))
+                           (when (> lines 0)
+                             (propertize (make-string lines ?\n)
+                                         'face 'hiwin-face))))))))))
 
 (defun hiwin--refresh-frame (frame)
   "Refresh inactive overlays in the live FRAME."
@@ -312,7 +346,8 @@ refresh all frames for compatibility with manual invocations."
         (add-hook 'window-state-change-functions #'hiwin-command-hook)
         (hiwin-draw-ovl))
     (remove-hook 'window-state-change-functions #'hiwin-command-hook)
-    (hiwin-delete-ovl)))
+    (hiwin-delete-ovl)
+    (hiwin--clear-empty-buffer-remaps)))
 
 ;;;###autoload
 (defun hiwin-activate ()
