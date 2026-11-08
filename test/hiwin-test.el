@@ -286,5 +286,26 @@
               (should-not (assq 'default face-remapping-alist))))
         (kill-buffer buffer)))))
 
+
+(ert-deftest hiwin-test-empty-buffer-transition ()
+  "Switch between the filtered background and virtual EOB padding."
+  (hiwin-test-with-windows
+    (with-temp-buffer
+      (let ((other (split-window-right))
+            (hiwin-eob-overlay-lines 3))
+        (set-window-buffer other (current-buffer))
+        (hiwin-mode 1)
+        (let ((overlay (gethash other hiwin-overlays)))
+          (should (window-parameter other 'hiwin--empty-background))
+          (should-not (overlay-get overlay 'after-string))
+          (insert "data")
+          (hiwin-draw-ovl)
+          (should-not (window-parameter other 'hiwin--empty-background))
+          (should (= (length (overlay-get overlay 'after-string)) 3))
+          (erase-buffer)
+          (hiwin-draw-ovl)
+          (should (window-parameter other 'hiwin--empty-background))
+          (should-not (overlay-get overlay 'after-string)))))))
+
 (provide 'hiwin-test)
 ;;; hiwin-test.el ends here
