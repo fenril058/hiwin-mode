@@ -7,7 +7,7 @@
 ;;
 ;; Author: k.sugita
 ;; Keywords: faces, editing, emulating
-;; Version: 2.3.2
+;; Version: 2.3.3
 ;; URL: https://github.com/fenril058/hiwin-mode
 ;; Package-Requires: ((emacs "27.1"))
 ;;
@@ -42,6 +42,10 @@
 ;; if you invisible active window, type M-x hiwin-deactivate.
 
 ;;; Changes
+;;
+;; 2026-11-09
+;; - Use a cursor-bearing display space before virtual EOB newlines.
+;;   Avoid an apparent extra first line in empty inactive buffers.
 ;;
 ;; 2026-11-08
 ;; - Refresh only the affected frame from window-state-change-functions.
@@ -118,7 +122,7 @@
   "Visible active window mode."
   :group 'emacs)
 
-(defconst hiwin-version "2.3.2"
+(defconst hiwin-version "2.3.3"
   "Version number of hiwin-mode.")
 
 (defcustom hiwin-mode-lighter " hiwin"
@@ -180,6 +184,16 @@ line heights, a larger fixed value may be useful."
       (1+ (window-body-height window))
     (max 0 hiwin-eob-overlay-lines)))
 
+(defun hiwin--eob-padding-string (lines)
+  "Return a face-colored display string with LINES virtual newlines.
+A graphic space precedes the newlines to provide an actual glyph for
+the cursor at EOB.  Cursor properties on newlines have no effect."
+  (when (> lines 0)
+    (let ((padding (propertize (concat " " (make-string lines ?\n))
+                               'face 'hiwin-face)))
+      (put-text-property 0 1 'cursor t padding)
+      padding)))
+
 (defvar hiwin-overlays (make-hash-table :test #'eq)
   "Hash table mapping inactive windows to their overlays.")
 
@@ -235,9 +249,7 @@ Do not select WINDOW or change its point."
             (unless (equal (overlay-get overlay 'hiwin-eob-lines) lines)
               (overlay-put overlay 'hiwin-eob-lines lines)
               (overlay-put overlay 'after-string
-                           (when (> lines 0)
-                             (propertize (make-string lines ?\n)
-                                         'face 'hiwin-face))))))))))
+                           (hiwin--eob-padding-string lines)))))))))
 
 (defun hiwin--refresh-frame (frame)
   "Refresh inactive overlays in the live FRAME."
