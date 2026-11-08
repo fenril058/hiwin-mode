@@ -68,10 +68,13 @@ buffer in an inactive window. By default, `nil` adapts to each window's
 height rather than inserting 96 newlines into the display. Set to `0`
 to disable the extra lines, or an integer to force a specific count.
 
-The padding is implemented with an overlay's `after-string`. To
-keep point on the first display row of an empty buffer, the string starts
-with a face-colored space carrying a `cursor` property before its
-virtual newlines. The underlying buffer text is never modified.
+For nonempty buffers the padding is implemented with an overlay's
+`after-string`. In an empty buffer, such virtual newlines shift the
+cursor down by the number of newlines. To avoid that, hiwin uses a
+window-filtered remapping of the `default` face **only for empty,
+inactive windows**. Normal text shading still uses overlays. The
+underlying buffer contents are never modified. Setting this option to
+`0` disables both EOB techniques.
 
 #### hiwin-ignore-minibuffer-selected-window
 
