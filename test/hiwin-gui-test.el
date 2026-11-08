@@ -36,6 +36,30 @@
               (hiwin-draw-ovl)
               (setq padded (hiwin-gui-test--point-y other))
               (message "EOB GUI regression: baseline Y=%S padded Y=%S" baseline padded)
+              (let* ((ov (gethash other hiwin-overlays))
+                     (old-after (overlay-get ov 'after-string))
+                     (newlines (propertize (make-string 5 ?\n)
+                                           'face 'hiwin-face))
+                     (anchor (propertize " " 'face 'hiwin-face
+                                         'cursor 1))
+                     (before-padding (propertize
+                                      (concat " " (make-string 5 ?\n))
+                                      'face 'hiwin-face)))
+                (put-text-property 0 1 'cursor 1 before-padding)
+                (overlay-put ov 'after-string newlines)
+                (message "EOB geometry original-after=%S"
+                         (hiwin-gui-test--point-y other))
+                (overlay-put ov 'before-string anchor)
+                (message "EOB geometry before-anchor + after-newlines=%S"
+                         (hiwin-gui-test--point-y other))
+                (overlay-put ov 'after-string nil)
+                (message "EOB geometry before-anchor only=%S"
+                         (hiwin-gui-test--point-y other))
+                (overlay-put ov 'before-string before-padding)
+                (message "EOB geometry before-anchor + before-newlines=%S"
+                         (hiwin-gui-test--point-y other))
+                (overlay-put ov 'before-string nil)
+                (overlay-put ov 'after-string old-after))
               (should (= baseline padded))
               (should (equal (with-current-buffer buffer (buffer-string)) "")))
             (hiwin-mode -1)))
