@@ -19,3 +19,17 @@ jobs:
           version: ${{ matrix.emacs }}
       - name: Run ERT
         run: emacs -Q --batch -L . -l test/hiwin-test.el -f ert-run-tests-batch-and-exit
+
+  graphical:
+    name: GUI cursor position (Xvfb)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install graphical Emacs and virtual display
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y emacs-gtk xvfb xauth
+      - name: Run graphical ERT
+        run: |
+          emacs --version | head -1
+          timeout -k 5s 120s xvfb-run -a emacs -Q -L . --eval '(condition-case err (progn (load-file "test/hiwin-gui-test.el") (let ((stats (ert-run-tests-batch))) (princ (with-current-buffer (get-buffer "*Messages*") (buffer-string)) (quote external-debugging-output)) (kill-emacs (if (zerop (ert-stats-completed-unexpected stats)) 0 1)))) (error (princ (format "GUI ERT error: %S\n" err) (quote external-debugging-output)) (kill-emacs 2)))'

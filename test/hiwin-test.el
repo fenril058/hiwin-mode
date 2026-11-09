@@ -95,14 +95,16 @@
 (ert-deftest hiwin-test-eob-padding-follows-window-height ()
   (hiwin-test-with-windows
     (with-temp-buffer
+      (insert "buffer content")
       (let ((hiwin-eob-overlay-lines nil)
             (other (split-window-right)))
         (set-window-buffer other (current-buffer))
+        (set-window-point other (point-max))
         (hiwin-mode 1)
         (let* ((overlay (gethash other hiwin-overlays))
                (padding (overlay-get overlay 'after-string)))
           (should (overlayp overlay))
-          (should (= (length padding) (1+ (window-body-height other))))
+          (should (= (cl-count ?\n padding) (1+ (window-body-height other))))
           (should (eq (get-text-property 0 'face padding) 'hiwin-face))
           (should (= (window-point other) (point-max)))
           ;; A redundant refresh must not allocate another padding string.
@@ -112,7 +114,7 @@
           (cl-letf (((symbol-function 'window-body-height)
                      (lambda (&rest _args) 12)))
             (hiwin-draw-ovl)
-            (should (= (length (overlay-get overlay 'after-string)) 13)))
+            (should (= (cl-count ?\n (overlay-get overlay 'after-string)) 13)))
           ;; A zero override disables only the EOB padding, not the overlay.
           (let ((hiwin-eob-overlay-lines 0))
             (hiwin-draw-ovl)
@@ -121,9 +123,9 @@
           ;; Explicit padding sizes remain compatible with old settings.
           (let ((hiwin-eob-overlay-lines 5))
             (hiwin-draw-ovl)
-            (should (= (length (overlay-get overlay 'after-string)) 5)))
+            (should (= (cl-count ?\n (overlay-get overlay 'after-string)) 5)))
           (hiwin-draw-ovl)
-          (should (= (length (overlay-get overlay 'after-string))
+          (should (= (cl-count ?\n (overlay-get overlay 'after-string))
                      (1+ (window-body-height other)))))))))
 
 (ert-deftest hiwin-test-minibuffer-exclusion-updates-on-customize ()
@@ -191,18 +193,19 @@
                      (b (gethash fourth hiwin-overlays))
                      (hiwin-eob-overlay-lines 7))
                 (hiwin-command-hook frame-a)
-                (should (= (length (overlay-get a 'after-string)) 7))
-                (should (= (length (overlay-get b 'after-string)) 3))
+                (should (= (cl-count ?\n (overlay-get a 'after-string)) 7))
+                (should (= (cl-count ?\n (overlay-get b 'after-string)) 3))
                 (should (eq a (gethash third hiwin-overlays)))
                 (should (eq b (gethash fourth hiwin-overlays)))
                 (hiwin-draw-ovl)
-                (should (= (length (overlay-get b 'after-string)) 7))))
+                (should (= (cl-count ?\n (overlay-get b 'after-string)) 7))))
           (hiwin-delete-ovl))))))
 
 (ert-deftest hiwin-test-theme-face-is-dynamic ()
   "Overlays refer to hiwin-face instead of snapshotting theme colors."
   (hiwin-test-with-windows
     (with-temp-buffer
+      (insert "theme buffer text")
       (let ((other (split-window-right)))
         (set-window-buffer other (current-buffer))
         (hiwin-mode 1)
@@ -211,6 +214,98 @@
           (should (eq (get-text-property 0 'face
                                          (overlay-get overlay 'after-string))
                       'hiwin-face)))))))
+
+
+(ert-deftest hiwin-test-empty-buffer-remapped-without-virtual-lines ()
+  "Empty inactive buffers need no virtual text to be fully dimmable."
+  (hiwin-test-with-windows
+    (with-temp-buffer
+      (let* ((hiwin-eob-overlay-lines 3)
+             (selected (selected-window))
+             (other (split-window-right)))
+        (set-window-buffer selected (current-buffer))
+        (set-window-buffer other (current-buffer))
+        (hiwin-mode 1)
+        (let ((overlay (gethash other hiwin-overlays)))
+          (should (overlayp overlay))
+          (should (equal (buffer-string) ""))
+          (should (= (window-point other) (point-min)))
+          (should (= (overlay-start overlay) (overlay-end overlay)))
+          (should-not (overlay-get overlay 'after-string))
+          (should (window-parameter other 'hiwin--empty-background))
+          (should-not (window-parameter selected 'hiwin--empty-background))
+          (should (gethash (current-buffer) hiwin--empty-buffer-remappings))
+          (hiwin-draw-ovl)
+          (should-not (overlay-get overlay 'after-string))
+          (should (equal (buffer-string) ""))
+          ;; Explicit zero must still disable EOB coloring.
+          (let ((hiwin-eob-overlay-lines 0))
+            (hiwin-draw-ovl)
+            (should-not (window-parameter other 'hiwin--empty-background)))
+          (hiwin-draw-ovl)
+          (should (window-parameter other 'hiwin--empty-background))
+          (hiwin-mode -1)
+          (should-not (window-parameter other 'hiwin--empty-background))
+          (should-not (gethash (current-buffer)
+                               hiwin--empty-buffer-remappings)))))))
+
+(ert-deftest hiwin-test-padding-for-nonempty-buffer ()
+  "A trailing EOB display space does not modify real buffer contents."
+  (hiwin-test-with-windows
+    (with-temp-buffer
+      (insert "abc")
+      (let* ((hiwin-eob-overlay-lines 2)
+             (other (split-window-right)))
+        (set-window-buffer other (current-buffer))
+        (set-window-point other (point-max))
+        (hiwin-mode 1)
+        (let* ((overlay (gethash other hiwin-overlays))
+               (padding (overlay-get overlay 'after-string)))
+          (should (equal (buffer-string) "abc"))
+          (should (= (window-point other) (point-max)))
+          (should (= (aref padding 0) ?\n))
+          (should (= (cl-count ?\n padding) 2))
+          (should-not (get-text-property 0 'cursor padding))
+          (should (eq (get-text-property 0 'face padding) 'hiwin-face)))))))
+
+
+(ert-deftest hiwin-test-empty-buffer-remapping-cleanup ()
+  "Remapping is removed when its buffer is not displayed anywhere."
+  (hiwin-test-with-windows
+    (let ((buffer (generate-new-buffer " *hiwin-test-unused-empty*"))
+          (other (split-window-right)))
+      (unwind-protect
+          (progn
+            (set-window-buffer other buffer)
+            (hiwin-mode 1)
+            (should (gethash buffer hiwin--empty-buffer-remappings))
+            (set-window-buffer other (window-buffer (selected-window)))
+            (hiwin-draw-ovl)
+            (should-not (gethash buffer hiwin--empty-buffer-remappings))
+            (with-current-buffer buffer
+              (should-not (assq 'default face-remapping-alist))))
+        (kill-buffer buffer)))))
+
+
+(ert-deftest hiwin-test-empty-buffer-transition ()
+  "Switch between the filtered background and virtual EOB padding."
+  (hiwin-test-with-windows
+    (with-temp-buffer
+      (let ((other (split-window-right))
+            (hiwin-eob-overlay-lines 3))
+        (set-window-buffer other (current-buffer))
+        (hiwin-mode 1)
+        (let ((overlay (gethash other hiwin-overlays)))
+          (should (window-parameter other 'hiwin--empty-background))
+          (should-not (overlay-get overlay 'after-string))
+          (insert "data")
+          (hiwin-draw-ovl)
+          (should-not (window-parameter other 'hiwin--empty-background))
+          (should (= (length (overlay-get overlay 'after-string)) 3))
+          (erase-buffer)
+          (hiwin-draw-ovl)
+          (should (window-parameter other 'hiwin--empty-background))
+          (should-not (overlay-get overlay 'after-string)))))))
 
 (provide 'hiwin-test)
 ;;; hiwin-test.el ends here
